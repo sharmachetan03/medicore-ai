@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Medical Report & AI Triage Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+</head>
+
+<body class="bg-gray-100 font-sans leading-normal tracking-normal p-6">
+
+    <!-- Header -->
+    <header class="bg-slate-800 text-white p-6 rounded-lg shadow-md mb-6">
+        <h1 class="text-3xl font-bold">Medical Report & AI Triage Dashboard</h1>
+    </header>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+
+        <!-- Left Column: AI Symptom Triage -->
+        <div class="bg-white p-6 rounded-lg shadow-md border-t-4 border-blue-600">
+            <h2 class="text-xl font-bold mb-4">AI Symptom Triage (Gemini 3.6-flash)</h2>
+            <textarea id="symptomsInput" rows="5"
+                class="w-full border border-gray-300 rounded p-3 mb-4 focus:outline-none focus:border-blue-500"
+                placeholder="Type your symptoms here..."></textarea>
+            <button onclick="analyzeSymptoms()"
+                class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded transition duration-200">
+                Analyze Symptoms
+            </button>
+            <div id="symptomResult" class="mt-4 p-4 rounded text-gray-800 bg-gray-50 border border-gray-200 hidden">
+            </div>
+        </div>
+
+        <!-- Right Column: Medical Reports -->
+        <div class="bg-white p-6 rounded-lg shadow-md border-t-4 border-blue-600">
+            <h2 class="text-xl font-bold mb-4">Medical Reports</h2>
+
+            <!-- Upload Section -->
+            <div class="mb-6">
+                <h3 class="font-semibold text-lg mb-2">Upload New Report</h3>
+                <input type="file" id="reportFile"
+                    class="mb-2 block w-full text-sm text-gray-500 border border-gray-300 rounded p-2">
+                <button onclick="uploadReport()"
+                    class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded transition duration-200">
+                    Upload
+                </button>
+            </div>
+
+            <hr class="my-4">
+
+            <!-- Available Reports List -->
+            <div>
+                <h3 class="font-semibold text-lg mb-2">Available Reports</h3>
+                <ul id="reportsList" class="space-y-2 mb-4"></ul>
+            </div>
+
+            <!-- Report AI Analysis Result Box -->
+            <div id="reportAnalysisResult"
+                class="mt-4 p-4 rounded text-gray-800 bg-gray-50 border border-gray-200 hidden"></div>
+        </div>
+
+    </div>
+
+    <script>
+        const API_KEY = "AQ.Ab8RN6J92Um3ZkvrrsUe8Bw47oYaKR9pLvsEY2F1R0aTzQCLkg";
+
+        // Fetch reports on page load
+        window.onload = loadReports;
+
+        async function analyzeSymptoms() {
+            const symptoms = document.getElementById("symptomsInput").value;
+            const resultDiv = document.getElementById("symptomResult");
+            if (!symptoms) return alert("Please describe your symptoms.");
+
+            resultDiv.classList.remove("hidden");
+            resultDiv.innerHTML = "Analyzing symptoms with Gemini...";
+
+            try {
+                const res = await fetch("/analyze_symptoms", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        "X-API-Key": API_KEY
+                    },
+                    body: JSON.stringify({ symptoms })
+                });
+                const data = await res.json();
+                if (res.ok) {
+                    resultDiv.innerHTML = marked.parse(data.analysis);
+                } else {
+                    resultDiv.innerHTML = `<span class="text-red-600">Error: ${data.detail}</span>`;
+                }
+            } catch (err) {
+                resultDiv.innerHTML = `<span class="text-red-600">Failed to connect to backend server.</span>`;
+            }
+        }
+
+        async function uploadReport() {
+            const fileInput = document.getElementById("reportFile");
+            if (!fileInput.files[0]) return alert("Please select a file first.");
+
+            const formData = new FormData();
+            formData.append("file", fileInput.files[0]);
+
+            try {
+                const res = await fetch("/reports/upload", {
+                    method: "POST",
+                    headers: { "X-API-Key": API_KEY },
+                    body: formData
+                });
+                if (res.ok) {
+                    alert("Report uploaded successfully!");
+                    fileInput.value = "";
+                    loadReports();
+                } else {
+                    alert("Failed to upload report.");
+                }
+            } catch (err) {
+                alert("Upload error.");
+            }
+        }
+
+        async function loadReports() {
+            try {
+                const res = await fetch("/reports/list", {
+                    headers: { "X-API-Key": API_KEY }
+                });
+                const files = await res.json();
+                const list = document.getElementById("reportsList");
+                list.innerHTML = "";
+
+                if (files.length === 0) {
+                    list.innerHTML = "<li class='text-gray-500'>No reports uploaded yet.</li>";
+                    return;
+                }
+
+                files.forEach(file => {
+                    const li = document.createElement("li");
+                    li.className = "flex justify-between items-center bg-gray-50 p-2 rounded border border-gray-200";
+                    li.innerHTML = `
+                        <span class="font-medium text-gray-700">${file}</span>
+                        <div class="space-x-3">
+                            <button onclick="analyzeReport('${file}')" class="text-blue-600 hover:underline font-semibold">Analyze</button>
+                            <a href="/reports/download/${file}?api_key=${API_KEY}" target="_blank" class="text-blue-600 hover:underline">Download</a>
+                            <button onclick="deleteReport('${file}')" class="text-red-600 hover:underline font-semibold">Delete</button>
+                        </div>
+                    `;
+                    list.appendChild(li);
+                });
+            } catch (err) {
+                console.error("Failed to fetch report list.");
+            }
+        }
+
+        async function analyzeReport(filename) {
+            const resultDiv = document.getElementById("reportAnalysisResult");
+            resultDiv.classList.remove("hidden");
+            resultDiv.innerHTML = `Analyzing <strong>${filename}</strong> with Gemini...`;
+
+            try {
+                const res = await fetch(`/reports/analyze/${filename}`, {
+                    headers: { "X-API-Key": API_KEY }
+                });
+                const data = await res.json();
+                if (res.ok) {
+                    resultDiv.innerHTML = `
+                        <h4 class="font-bold text-lg mb-2 text-blue-800">Report Analysis: ${filename}</h4>
+                        <div>${marked.parse(data.explanation)}</div>
+                    `;
+                } else {
+                    resultDiv.innerHTML = `<span class="text-red-600">Error: ${data.detail}</span>`;
+                }
+            } catch (err) {
+                resultDiv.innerHTML = `<span class="text-red-600">Failed to generate explanation.</span>`;
+            }
+        }
+
+        async function deleteReport(filename) {
+            if (!confirm(`Are you sure you want to delete ${filename}?`)) return;
+
+            try {
+                const res = await fetch(`/reports/delete/${filename}`, {
+                    method: "DELETE",
+                    headers: { "X-API-Key": API_KEY }
+                });
+
+                if (res.ok) {
+                    alert("Report deleted successfully.");
+                    // Hide report analysis box if it was showing the deleted report
+                    const resultDiv = document.getElementById("reportAnalysisResult");
+                    resultDiv.classList.add("hidden");
+                    resultDiv.innerHTML = "";
+                    loadReports();
+                } else {
+                    const data = await res.json();
+                    alert(`Failed to delete report: ${data.detail}`);
+                }
+            } catch (err) {
+                alert("Delete request failed.");
+            }
+        }
+    </script>
+</body>
+
+</html>

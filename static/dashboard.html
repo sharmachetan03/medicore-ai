@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MediCore AI - Portal Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+</head>
+
+<body class="bg-slate-900 text-slate-100 min-h-screen">
+
+    <!-- Top Navigation Header -->
+    <header class="bg-slate-800/80 backdrop-blur border-b border-slate-700/60 sticky top-0 z-50">
+        <div class="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between">
+            <div class="flex items-center space-x-3">
+                <div
+                    class="w-10 h-10 bg-blue-600/20 text-blue-400 rounded-xl flex items-center justify-center border border-blue-500/30">
+                    <i class="fa-solid fa-heart-pulse text-lg"></i>
+                </div>
+                <div>
+                    <h1 class="font-bold text-lg leading-none text-white">MediCore AI</h1>
+                    <span class="text-xs text-slate-400">Clinical Portal v2.0</span>
+                </div>
+            </div>
+
+            <div class="flex items-center space-x-4">
+                <div class="text-right">
+                    <p id="user-display-name" class="text-sm font-semibold text-white">Loading...</p>
+                    <span id="user-display-role"
+                        class="inline-block px-2 py-0.5 text-[10px] font-semibold tracking-wide uppercase rounded bg-blue-500/20 text-blue-400 border border-blue-500/30">
+                        Patient
+                    </span>
+                </div>
+                <button onclick="logout()"
+                    class="p-2 text-slate-400 hover:text-rose-400 hover:bg-slate-700/50 rounded-lg transition"
+                    title="Logout">
+                    <i class="fa-solid fa-right-from-bracket text-lg"></i>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Container -->
+    <main class="max-w-7xl mx-auto px-4 py-8 space-y-8">
+
+        <!-- Grid 1: AI Clinical Tools (Triage + Health Recommendation Engine) -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+
+            <!-- Tool 1: AI Symptom Triage -->
+            <div
+                class="bg-slate-800/60 border border-slate-700/60 rounded-2xl p-6 shadow-xl flex flex-col justify-between">
+                <div>
+                    <div class="flex items-center space-x-3 mb-4">
+                        <div class="p-2 bg-indigo-500/10 text-indigo-400 rounded-lg border border-indigo-500/20">
+                            <i class="fa-solid fa-user-doctor text-xl"></i>
+                        </div>
+                        <h2 class="text-lg font-bold text-white">AI Symptom Triage</h2>
+                    </div>
+                    <p class="text-xs text-slate-400 mb-4">Describe symptoms for instantaneous clinical analysis and
+                        urgency assessment.</p>
+
+                    <textarea id="triage-symptoms" rows="3"
+                        placeholder="e.g., Mild fever, persistent headache since yesterday..."
+                        class="w-full p-3 bg-slate-900/80 border border-slate-700 rounded-xl text-sm text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500 resize-none"></textarea>
+                </div>
+
+                <div class="mt-4">
+                    <button onclick="runTriage()" id="btn-triage"
+                        class="w-full py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-sm font-medium transition flex items-center justify-center space-x-2">
+                        <span>Analyze Symptoms</span>
+                        <i class="fa-solid fa-wand-magic-sparkles"></i>
+                    </button>
+                    <div id="triage-output"
+                        class="hidden mt-4 p-4 bg-slate-900/90 rounded-xl border border-indigo-500/30 text-sm text-slate-200 prose prose-invert max-w-none">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tool 2: Health Recommendation Engine -->
+            <div
+                class="bg-slate-800/60 border border-slate-700/60 rounded-2xl p-6 shadow-xl flex flex-col justify-between">
+                <div>
+                    <div class="flex items-center space-x-3 mb-4">
+                        <div class="p-2 bg-emerald-500/10 text-emerald-400 rounded-lg border border-emerald-500/20">
+                            <i class="fa-solid fa-heart-circle-check text-xl"></i>
+                        </div>
+                        <h2 class="text-lg font-bold text-white">Health Recommendation Engine</h2>
+                    </div>
+                    <p class="text-xs text-slate-400 mb-4">Get custom wellness plans, diet tips, or preventive care
+                        guidance based on your health goal.</p>
+
+                    <textarea id="recommendation-goal" rows="3"
+                        placeholder="e.g., Daily stretching routine for posture, diet recommendations for lowering cholesterol..."
+                        class="w-full p-3 bg-slate-900/80 border border-slate-700 rounded-xl text-sm text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500 resize-none"></textarea>
+                </div>
+
+                <div class="mt-4">
+                    <button onclick="runRecommendations()" id="btn-rec"
+                        class="w-full py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-sm font-medium transition flex items-center justify-center space-x-2">
+                        <span>Generate Health Plan</span>
+                        <i class="fa-solid fa-leaf"></i>
+                    </button>
+                    <div id="recommendation-output"
+                        class="hidden mt-4 p-4 bg-slate-900/90 rounded-xl border border-emerald-500/30 text-sm text-slate-200 prose prose-invert max-w-none">
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- Grid 2: Smart Report Parsing & Appointment Scheduling -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+
+            <!-- Tool 3: Medical Report Upload -->
+            <div
+                class="bg-slate-800/60 border border-slate-700/60 rounded-2xl p-6 shadow-xl flex flex-col justify-between">
+                <div>
+                    <div class="flex items-center space-x-3 mb-4">
+                        <div class="p-2 bg-teal-500/10 text-teal-400 rounded-lg border border-teal-500/20">
+                            <i class="fa-solid fa-file-medical text-xl"></i>
+                        </div>
+                        <h2 class="text-lg font-bold text-white">Smart Report Analysis & Upload</h2>
+                    </div>
+                    <p class="text-xs text-slate-400 mb-4">Upload lab results, PDFs, or scan images (JPG/PNG up to 10MB)
+                        to generate clinical summaries.</p>
+
+                    <input type="file" id="report-file" accept=".pdf,.jpg,.jpeg,.png"
+                        class="block w-full text-xs text-slate-400 file:mr-4 file:py-2.5 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-teal-600/20 file:text-teal-300 hover:file:bg-teal-600/30 border border-slate-700/60 rounded-xl bg-slate-900/80">
+                </div>
+
+                <div class="mt-4">
+                    <button onclick="uploadReport()" id="btn-upload"
+                        class="w-full py-2.5 bg-teal-600 hover:bg-teal-500 text-white rounded-xl text-sm font-medium transition flex items-center justify-center space-x-2">
+                        <span>Process & Save to EHR</span>
+                        <i class="fa-solid fa-cloud-arrow-up"></i>
+                    </button>
+                    <div id="upload-output"
+                        class="hidden mt-4 p-4 bg-slate-900/90 rounded-xl border border-teal-500/30 text-sm text-slate-200 max-w-none">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tool 4: Schedule Appointment -->
+            <div
+                class="bg-slate-800/60 border border-slate-700/60 rounded-2xl p-6 shadow-xl flex flex-col justify-between">
+                <div>
+                    <div class="flex items-center space-x-3 mb-4">
+                        <div class="p-2 bg-amber-500/10 text-amber-400 rounded-lg border border-amber-500/20">
+                            <i class="fa-solid fa-calendar-check text-xl"></i>
+                        </div>
+                        <h2 class="text-lg font-bold text-white">Book Doctor Consult</h2>
+                    </div>
+                    <p class="text-xs text-slate-400 mb-4">Schedule a clinical appointment. It will automatically log to
+                        your EHR history.</p>
+
+                    <div class="space-y-3">
+                        <input type="text" id="doc-name" placeholder="Doctor Name (e.g., Dr. Smith)"
+                            class="w-full p-2.5 bg-slate-900/80 border border-slate-700 rounded-xl text-sm text-white focus:outline-none focus:border-amber-500">
+                        <input type="datetime-local" id="app-date"
+                            class="w-full p-2.5 bg-slate-900/80 border border-slate-700 rounded-xl text-sm text-white focus:outline-none focus:border-amber-500">
+                        <input type="text" id="app-reason" placeholder="Reason for Visit"
+                            class="w-full p-2.5 bg-slate-900/80 border border-slate-700 rounded-xl text-sm text-white focus:outline-none focus:border-amber-500">
+                    </div>
+                </div>
+
+                <button onclick="bookAppointment()"
+                    class="mt-4 w-full py-2.5 bg-amber-600 hover:bg-amber-500 text-white rounded-xl text-sm font-medium transition">
+                    Confirm Appointment
+                </button>
+            </div>
+
+        </div>
+
+        <!-- Section 5: Electronic Health Records (EHR) -->
+        <div class="bg-slate-800/60 border border-slate-700/60 rounded-2xl p-6 shadow-xl">
+            <div class="flex items-center justify-between mb-6">
+                <div class="flex items-center space-x-3">
+                    <div class="p-2 bg-blue-500/10 text-blue-400 rounded-lg border border-blue-500/20">
+                        <i class="fa-solid fa-folder-open text-xl"></i>
+                    </div>
+                    <div>
+                        <h2 class="text-lg font-bold text-white">Electronic Health Records (EHR)</h2>
+                        <p id="ehr-subtitle" class="text-xs text-slate-400">Personal Patient Health Records</p>
+                    </div>
+                </div>
+                <button onclick="loadEHR()"
+                    class="px-3 py-1.5 bg-slate-700 hover:bg-slate-600 rounded-lg text-xs font-medium text-slate-200 transition">
+                    <i class="fa-solid fa-rotate-right mr-1"></i> Refresh History
+                </button>
+            </div>
+
+            <div class="overflow-x-auto">
+                <table class="w-full text-left text-sm text-slate-300">
+                    <thead class="bg-slate-900/60 text-xs uppercase text-slate-400 border-b border-slate-700">
+                        <tr>
+                            <th class="py-3 px-4">Date</th>
+                            <th class="py-3 px-4">Patient</th>
+                            <th class="py-3 px-4">Record / Report Title</th>
+                            <th class="py-3 px-4">Clinical Summary</th>
+                        </tr>
+                    </thead>
+                    <tbody id="ehr-table-body" class="divide-y divide-slate-700/50">
+                        <!-- Dynamic Records -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+    </main>
+
+    <script>
+        // Retrieve Auth Session
+        const userObj = JSON.parse(localStorage.getItem('user') || '{}');
+        const userEmail = localStorage.getItem('user_email') || userObj.email;
+        const userName = localStorage.getItem('user_name') || userObj.full_name || 'User';
+        const userRole = localStorage.getItem('user_role') || userObj.role || 'patient';
+
+        if (!userEmail) {
+            window.location.href = '/static/login.html';
+        }
+
+        // Initialize Header
+        document.getElementById('user-display-name').innerText = userName;
+        const roleBadge = document.getElementById('user-display-role');
+        roleBadge.innerText = userRole.toUpperCase();
+
+        if (userRole === 'doctor' || userRole === 'admin') {
+            roleBadge.className = "inline-block px-2 py-0.5 text-[10px] font-semibold tracking-wide uppercase rounded bg-purple-500/20 text-purple-400 border border-purple-500/30";
+            document.getElementById('ehr-subtitle').innerText = "Doctor View - Accessing Portal-Wide EHR Records";
+        }
+
+        // --- 1. AI Symptom Triage ---
+        async function runTriage() {
+            const symptoms = document.getElementById('triage-symptoms').value;
+            const output = document.getElementById('triage-output');
+            if (!symptoms.trim()) return alert('Please enter your symptoms.');
+
+            output.classList.remove('hidden');
+            output.innerHTML = '<i class="fa-solid fa-spinner fa-spin mr-2"></i> Analyzing symptoms...';
+
+            try {
+                const res = await fetch('/api/triage', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ symptoms })
+                });
+                const data = await res.json();
+                output.innerHTML = marked.parse(data.assessment || data.triage_assessment);
+            } catch (err) {
+                output.innerText = 'Error processing triage.';
+            }
+        }
+
+        // --- 2. Health Recommendation Engine ---
+        async function runRecommendations() {
+            const goal = document.getElementById('recommendation-goal').value;
+            const output = document.getElementById('recommendation-output');
+            if (!goal.trim()) return alert('Please enter a wellness goal or health topic.');
+
+            output.classList.remove('hidden');
+            output.innerHTML = '<i class="fa-solid fa-spinner fa-spin mr-2"></i> Generating personalized recommendations...';
+
+            try {
+                const res = await fetch('/api/recommendations', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ concern_or_goal: goal })
+                });
+                const data = await res.json();
+                output.innerHTML = marked.parse(data.recommendations);
+            } catch (err) {
+                output.innerText = 'Error generating recommendations.';
+            }
+        }
+
+        // --- 3. Upload & Analyze Medical Report ---
+        async function uploadReport() {
+            const fileInput = document.getElementById('report-file');
+            const output = document.getElementById('upload-output');
+            if (!fileInput.files[0]) return alert('Please select a file to upload.');
+
+            const formData = new FormData();
+            formData.append('file', fileInput.files[0]);
+
+            output.classList.remove('hidden');
+            output.innerHTML = '<i class="fa-solid fa-spinner fa-spin mr-2"></i> Parsing and extracting summary...';
+
+            try {
+                const res = await fetch('/api/upload-report', {
+                    method: 'POST',
+                    headers: { 'x-user-email': userEmail },
+                    body: formData
+                });
+                const data = await res.json();
+
+                // Render Markdown summary along with the download button directly in this section
+                output.innerHTML = `
+                    <div class="prose prose-invert max-w-none mb-4">
+                        ${marked.parse(data.summary)}
+                    </div>
+                    ${data.record_id ? `
+                        <div class="pt-3 border-t border-slate-700/60">
+                            <a href="/api/ehr/download/${data.record_id}" download 
+                               class="inline-flex items-center space-x-2 px-4 py-2 bg-teal-600 hover:bg-teal-500 text-white rounded-xl text-xs font-semibold transition shadow-lg">
+                                <i class="fa-solid fa-file-arrow-down"></i>
+                                <span>Download Original ${data.filename || 'Report'}</span>
+                            </a>
+                        </div>
+                    ` : ''}
+                `;
+
+                loadEHR(); // Refresh EHR history automatically
+            } catch (err) {
+                output.innerText = 'Error uploading or analyzing report.';
+            }
+        }
+
+        // --- 4. Book Appointment ---
+        async function bookAppointment() {
+            const doctor_name = document.getElementById('doc-name').value;
+            const appointment_date = document.getElementById('app-date').value;
+            const reason = document.getElementById('app-reason').value;
+
+            if (!doctor_name || !appointment_date) return alert('Please fill in Doctor Name and Date.');
+
+            try {
+                const res = await fetch('/api/appointments', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'x-user-email': userEmail
+                    },
+                    body: JSON.stringify({ doctor_name, appointment_date, reason })
+                });
+                const data = await res.json();
+                alert('Appointment booked successfully!');
+                loadEHR();
+            } catch (err) {
+                alert('Error booking appointment.');
+            }
+        }
+
+        // --- 5. Load Clean EHR Table (No Action Column) ---
+        async function loadEHR() {
+            const tbody = document.getElementById('ehr-table-body');
+            tbody.innerHTML = `<tr><td colspan="4" class="py-4 text-center text-slate-500"><i class="fa-solid fa-spinner fa-spin mr-2"></i> Loading health records...</td></tr>`;
+
+            try {
+                const res = await fetch(`/api/ehr/${encodeURIComponent(userEmail)}`);
+                const records = await res.json();
+
+                if (!records || records.length === 0) {
+                    tbody.innerHTML = `<tr><td colspan="4" class="py-6 text-center text-slate-500">No medical records found. Upload a report or schedule an appointment to populate history.</td></tr>`;
+                    return;
+                }
+
+                tbody.innerHTML = records.map(r => `
+                    <tr class="hover:bg-slate-800/40 transition">
+                        <td class="py-3 px-4 font-mono text-xs text-slate-400">${r.created_at}</td>
+                        <td class="py-3 px-4 text-slate-200 font-medium">${r.patient_name || 'Patient'}</td>
+                        <td class="py-3 px-4 font-semibold text-blue-400">${r.record_type}</td>
+                        <td class="py-3 px-4 text-slate-300 max-w-md truncate">${r.summary || 'N/A'}</td>
+                    </tr>
+                `).join('');
+
+            } catch (err) {
+                tbody.innerHTML = `<tr><td colspan="4" class="py-4 text-center text-rose-400">Failed to load EHR history.</td></tr>`;
+            }
+        }
+
+        function logout() {
+            localStorage.clear();
+            window.location.href = '/static/login.html';
+        }
+
+        // Initial Load
+        loadEHR();
+    </script>
+</body>
+
+</html>
