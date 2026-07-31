@@ -28,8 +28,7 @@ from google import genai
 # ---------------------------------------------------------------------------
 # 1. Environment & Configuration
 # ---------------------------------------------------------------------------
-ENV_PATH = r"C:\Users\CHETAN SHARMA\ChetanPython\.env"
-load_dotenv(dotenv_path=ENV_PATH)
+load_dotenv()
 
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 DATABASE_URL = os.getenv("DATABASE_URL")
