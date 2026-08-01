@@ -176,13 +176,14 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 # --- System & Keep-Alive Monitoring ---
 
 
-@app.get("/health")
-@app.get("/health/")
+@app.api_route("/health", methods=["GET", "HEAD"])
+@app.api_route("/health/", methods=["GET", "HEAD"])
 def health_check():
     """
     Lightweight health check endpoint.
     Executes 'SELECT 1' to keep Aiven MySQL active 
     and returns 200 OK to keep Render web service awake.
+    Supports both GET and HEAD methods for UptimeRobot.
     """
     try:
         with engine.connect() as connection:
