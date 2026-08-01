@@ -8,7 +8,7 @@ from fastapi.responses import RedirectResponse, FileResponse, Response
 from fastapi.middleware.cors import CORSMiddleware
 
 from pydantic import BaseModel, EmailStr
-from sqlalchemy import create_engine, Column, Integer, String, DateTime, Text, ForeignKey
+from sqlalchemy import create_engine, Column, Integer, String, DateTime, Text, ForeignKey, text
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, Session, relationship
 
@@ -84,8 +84,10 @@ class MedicalRecord(Base):
     patient_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     title = Column(String(200), nullable=False)
     description = Column(Text, nullable=True)
-    file_path = Column(String(500), nullable=True)     # Stores path to original file
-    file_name = Column(String(255), nullable=True)     # Stores original filename
+    # Stores path to original file
+    file_path = Column(String(500), nullable=True)
+    # Stores original filename
+    file_name = Column(String(255), nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
 
     patient = relationship("User", back_populates="medical_records")
@@ -100,6 +102,7 @@ def get_db():
         yield db
     finally:
         db.close()
+
 
 # ---------------------------------------------------------------------------
 # 3. Security / Hashing Setup
@@ -144,6 +147,7 @@ class TriageRequest(BaseModel):
 class RecommendationRequest(BaseModel):
     concern_or_goal: str
 
+
 # ---------------------------------------------------------------------------
 # 5. FastAPI App Setup
 # ---------------------------------------------------------------------------
@@ -169,12 +173,32 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 # 6. API Endpoints
 # ---------------------------------------------------------------------------
 
+# --- System & Keep-Alive Monitoring ---
+
+
+@app.get("/health")
+@app.get("/health/")
+def health_check():
+    """
+    Lightweight health check endpoint.
+    Executes 'SELECT 1' to keep Aiven MySQL active 
+    and returns 200 OK to keep Render web service awake.
+    """
+    try:
+        with engine.connect() as connection:
+            connection.execute(text("SELECT 1"))
+        return {"status": "healthy", "database": "connected"}
+    except Exception as e:
+        return {"status": "unhealthy", "error": str(e)}
+
 # --- Authentication ---
+
 
 @app.post("/api/register")
 @app.post("/api/register/")
 def register_user(user_data: UserCreate, db: Session = Depends(get_db)):
-    existing_user = db.query(User).filter(User.email == user_data.email).first()
+    existing_user = db.query(User).filter(
+        User.email == user_data.email).first()
     if existing_user:
         raise HTTPException(status_code=400, detail="Email already registered")
 
@@ -196,7 +220,8 @@ def register_user(user_data: UserCreate, db: Session = Depends(get_db)):
 def login_user(login_data: UserLogin, db: Session = Depends(get_db)):
     user = db.query(User).filter(User.email == login_data.email).first()
     if not user or not verify_password(login_data.password, user.hashed_password):
-        raise HTTPException(status_code=401, detail="Invalid email or password")
+        raise HTTPException(
+            status_code=401, detail="Invalid email or password")
 
     return {
         "message": "Login successful",
@@ -210,13 +235,15 @@ def login_user(login_data: UserLogin, db: Session = Depends(get_db)):
 
 # --- Clinical AI Features ---
 
+
 @app.post("/api/triage")
 @app.post("/api/triage/")
 @app.post("/api/ai/triage")
 @app.post("/api/ai/triage/")
 def ai_symptom_triage(request: TriageRequest):
     if not ai_client:
-        raise HTTPException(status_code=500, detail="Gemini API Key is not configured.")
+        raise HTTPException(
+            status_code=500, detail="Gemini API Key is not configured.")
 
     prompt = (
         f"You are an AI clinical triage assistant for MediCore AI portal. "
@@ -232,14 +259,16 @@ def ai_symptom_triage(request: TriageRequest):
         )
         return {"assessment": response.text, "triage_assessment": response.text}
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"AI Service Error: {str(e)}")
+        raise HTTPException(
+            status_code=500, detail=f"AI Service Error: {str(e)}")
 
 
 @app.post("/api/recommendations")
 @app.post("/api/recommendations/")
 def ai_health_recommendations(request: RecommendationRequest):
     if not ai_client:
-        raise HTTPException(status_code=500, detail="Gemini API Key is not configured.")
+        raise HTTPException(
+            status_code=500, detail="Gemini API Key is not configured.")
 
     prompt = (
         f"You are an expert health and wellness advisor for MediCore AI. "
@@ -254,30 +283,33 @@ def ai_health_recommendations(request: RecommendationRequest):
         )
         return {"recommendations": response.text}
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"AI Service Error: {str(e)}")
+        raise HTTPException(
+            status_code=500, detail=f"AI Service Error: {str(e)}")
 
 
 @app.post("/api/upload-report")
 @app.post("/api/upload-report/")
 async def upload_report(
-    file: UploadFile = File(...), 
+    file: UploadFile = File(...),
     x_user_email: Optional[str] = Header(None),
     db: Session = Depends(get_db)
 ):
     contents = await file.read()
     if len(contents) > MAX_FILE_SIZE:
-        raise HTTPException(status_code=400, detail="File size exceeds the 10 MB limit.")
+        raise HTTPException(
+            status_code=400, detail="File size exceeds the 10 MB limit.")
 
     filename = file.filename.lower()
     allowed_exts = (".pdf", ".jpg", ".jpeg", ".png")
     if not any(filename.endswith(ext) for ext in allowed_exts):
-        raise HTTPException(status_code=400, detail="Only PDF, JPG, JPEG, and PNG files are allowed.")
+        raise HTTPException(
+            status_code=400, detail="Only PDF, JPG, JPEG, and PNG files are allowed.")
 
     # 1. Save original file to disk
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     saved_filename = f"{timestamp}_{file.filename}"
     saved_file_path = os.path.join(UPLOAD_DIR, saved_filename)
-    
+
     with open(saved_file_path, "wb") as f:
         f.write(contents)
 
@@ -286,25 +318,29 @@ async def upload_report(
     try:
         if filename.endswith(".pdf"):
             reader = pypdf.PdfReader(io.BytesIO(contents))
-            extracted_text = "".join([page.extract_text() or "" for page in reader.pages])
+            extracted_text = "".join(
+                [page.extract_text() or "" for page in reader.pages])
             if not extracted_text.strip():
                 extracted_text = "Medical Document PDF"
 
             if ai_client:
                 prompt = f"Summarize this medical report in clean Markdown format with key observations and metrics:\n\n{extracted_text}"
-                resp = ai_client.models.generate_content(model="gemini-3.6-flash", contents=prompt)
+                resp = ai_client.models.generate_content(
+                    model="gemini-3.6-flash", contents=prompt)
                 summary = resp.text
             else:
                 summary = "PDF parsed successfully (AI client unconfigured)."
 
         else:  # Image (JPG, JPEG, PNG)
             if not Image:
-                raise HTTPException(status_code=500, detail="Pillow library is missing.")
-            
+                raise HTTPException(
+                    status_code=500, detail="Pillow library is missing.")
+
             image = Image.open(io.BytesIO(contents))
             if ai_client:
                 prompt = "Examine this medical report image. Summarize key findings, diagnoses, and lab values in structured Markdown."
-                resp = ai_client.models.generate_content(model="gemini-3.6-flash", contents=[image, prompt])
+                resp = ai_client.models.generate_content(
+                    model="gemini-3.6-flash", contents=[image, prompt])
                 summary = resp.text
             else:
                 summary = "Image uploaded successfully (AI client unconfigured)."
@@ -329,30 +365,33 @@ async def upload_report(
             record_id = new_record.id
 
         return {
-            "filename": file.filename, 
+            "filename": file.filename,
             "summary": summary,
             "record_id": record_id,
             "has_file": True
         }
 
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"File processing error: {str(e)}")
+        raise HTTPException(
+            status_code=500, detail=f"File processing error: {str(e)}")
 
 # --- Appointments ---
+
 
 @app.post("/api/appointments")
 @app.post("/api/appointments/")
 def create_appointment(
-    appointment: AppointmentCreate, 
-    x_user_email: Optional[str] = Header(None), 
+    appointment: AppointmentCreate,
+    x_user_email: Optional[str] = Header(None),
     db: Session = Depends(get_db)
 ):
     patient = None
     if x_user_email:
         patient = db.query(User).filter(User.email == x_user_email).first()
-    
+
     if not patient:
-        raise HTTPException(status_code=404, detail="Authenticated user not found.")
+        raise HTTPException(
+            status_code=404, detail="Authenticated user not found.")
 
     new_app = Appointment(
         patient_id=patient.id,
@@ -377,6 +416,7 @@ def create_appointment(
 
 # --- EHR History & File Downloads ---
 
+
 @app.get("/api/ehr/{user_email}")
 @app.get("/api/ehr/{user_email}/")
 @app.get("/api/ehr")
@@ -390,7 +430,8 @@ def get_ehr_history(user_email: Optional[str] = None, db: Session = Depends(get_
         return []
 
     if requesting_user.role in ["doctor", "admin"]:
-        records = db.query(MedicalRecord).order_by(MedicalRecord.created_at.desc()).all()
+        records = db.query(MedicalRecord).order_by(
+            MedicalRecord.created_at.desc()).all()
     else:
         records = db.query(MedicalRecord).filter(
             MedicalRecord.patient_id == requesting_user.id
@@ -413,9 +454,11 @@ def get_ehr_history(user_email: Optional[str] = None, db: Session = Depends(get_
 
 @app.get("/api/ehr/download/{record_id}")
 def download_ehr_report(record_id: int, db: Session = Depends(get_db)):
-    record = db.query(MedicalRecord).filter(MedicalRecord.id == record_id).first()
+    record = db.query(MedicalRecord).filter(
+        MedicalRecord.id == record_id).first()
     if not record:
-        raise HTTPException(status_code=404, detail="Medical record not found.")
+        raise HTTPException(
+            status_code=404, detail="Medical record not found.")
 
     # 1. If an original uploaded file exists (JPEG, PNG, PDF), serve that file!
     if record.file_path and os.path.exists(record.file_path):
@@ -427,7 +470,8 @@ def download_ehr_report(record_id: int, db: Session = Depends(get_db)):
 
     # 2. Otherwise (for appointments/notes without physical files), generate text report
     patient_name = record.patient.full_name if record.patient else "Unknown Patient"
-    date_str = record.created_at.strftime("%Y-%m-%d %H:%M:%S") if record.created_at else "N/A"
+    date_str = record.created_at.strftime(
+        "%Y-%m-%d %H:%M:%S") if record.created_at else "N/A"
 
     report_content = f"""====================================================================
                         MEDICORE AI CLINICAL REPORT
