@@ -18,13 +18,8 @@ from dotenv import load_dotenv
 import pypdf
 import io
 
-# Safe PIL Import for JPG/PNG support
-try:
-    from PIL import Image
-except ImportError:
-    Image = None
-
 from google import genai
+from google.genai import types
 
 # ---------------------------------------------------------------------------
 # 1. Environment & Configuration
@@ -372,12 +367,11 @@ async def upload_report(
                 summary = "PDF parsed successfully (AI client unconfigured)."
 
         else:  # Image (JPG, JPEG, PNG)
-            if not Image:
-                raise HTTPException(
-                    status_code=500, detail="Pillow library is missing.")
-
-            image = Image.open(io.BytesIO(contents))
             if ai_client:
+                mime_type = file.content_type or "image/jpeg"
+                image_part = types.Part.from_bytes(
+                    data=contents, mime_type=mime_type)
+
                 prompt = (
                     "Examine this handwritten or typed medical prescription/report image carefully.\n"
                     "Summarize key findings, patient details, diagnoses, and medication dosages in structured Markdown.\n"
@@ -386,8 +380,11 @@ async def upload_report(
                     "2. Express dosages, quantities, and units in plain text only (e.g. write '5ml', '500mg', '5ml - 5ml - 5ml').\n"
                     "3. Pay close attention to handwritten dosage numbers."
                 )
+
                 resp = ai_client.models.generate_content(
-                    model="gemini-3.6-flash", contents=[image, prompt])
+                    model="gemini-3.6-flash",
+                    contents=[image_part, prompt]
+                )
                 summary = sanitize_medical_text(resp.text)
             else:
                 summary = "Image uploaded successfully (AI client unconfigured)."
