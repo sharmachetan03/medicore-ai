@@ -1,4 +1,5 @@
 import os
+import re
 from typing import List, Optional
 from datetime import datetime
 
@@ -42,6 +43,34 @@ if GEMINI_API_KEY:
     ai_client = genai.Client(api_key=GEMINI_API_KEY)
 
 MAX_FILE_SIZE = 10 * 1024 * 1024  # 10 MB Limit
+
+# ---------------------------------------------------------------------------
+# Helper Function: Text Sanitization (Prevents LaTeX Render Bugs)
+# ---------------------------------------------------------------------------
+
+
+def sanitize_medical_text(text: str) -> str:
+    """
+    Post-processing safeguard: Strips LaTeX math syntax and stray dollar signs 
+    from LLM outputs to prevent rendering bugs on the React frontend.
+    """
+    if not text:
+        return text
+
+    # Remove LaTeX \text{...} wrappers (e.g., \text{mg} -> mg, \text{mL} -> mL)
+    text = re.sub(r'\\text\{([^}]+)\}', r'\1', text)
+
+    # Remove any remaining LaTeX backslashes before units
+    text = re.sub(r'\\([a-zA-Z]+)', r'\1', text)
+
+    # Strip inline math dollar signs surrounding numbers/units (e.g., $5ml$ -> 5ml)
+    text = re.sub(r'\$([^$]+)\$', r'\1', text)
+
+    # Clean up isolated dollar signs
+    text = text.replace('$', '')
+
+    return text
+
 
 # ---------------------------------------------------------------------------
 # 2. Database Setup & ORM Models
@@ -249,7 +278,8 @@ def ai_symptom_triage(request: TriageRequest):
     prompt = (
         f"You are an AI clinical triage assistant for MediCore AI portal. "
         f"Analyze the following patient symptoms. Format your answer nicely using Markdown headings, "
-        f"bullet points, and clear sections (Assessment, Urgency Level, Next Steps):\n\n"
+        f"bullet points, and clear sections (Assessment, Urgency Level, Next Steps).\n"
+        f"CRITICAL: Do NOT use LaTeX or dollar signs ($) for any units or numbers (e.g. write 5ml, 37.8 C, 500mg).\n\n"
         f"Symptoms: {request.symptoms}"
     )
 
@@ -258,7 +288,8 @@ def ai_symptom_triage(request: TriageRequest):
             model="gemini-3.6-flash",
             contents=prompt,
         )
-        return {"assessment": response.text, "triage_assessment": response.text}
+        clean_text = sanitize_medical_text(response.text)
+        return {"assessment": clean_text, "triage_assessment": clean_text}
     except Exception as e:
         raise HTTPException(
             status_code=500, detail=f"AI Service Error: {str(e)}")
@@ -274,7 +305,8 @@ def ai_health_recommendations(request: RecommendationRequest):
     prompt = (
         f"You are an expert health and wellness advisor for MediCore AI. "
         f"Provide structured health recommendations using Markdown formatting with bullet points "
-        f"and concise categories:\n\nConcern/Goal: {request.concern_or_goal}"
+        f"and concise categories. Do NOT use LaTeX syntax or dollar signs ($) for measurements.\n\n"
+        f"Concern/Goal: {request.concern_or_goal}"
     )
 
     try:
@@ -282,7 +314,8 @@ def ai_health_recommendations(request: RecommendationRequest):
             model="gemini-3.6-flash",
             contents=prompt,
         )
-        return {"recommendations": response.text}
+        clean_text = sanitize_medical_text(response.text)
+        return {"recommendations": clean_text}
     except Exception as e:
         raise HTTPException(
             status_code=500, detail=f"AI Service Error: {str(e)}")
@@ -325,10 +358,16 @@ async def upload_report(
                 extracted_text = "Medical Document PDF"
 
             if ai_client:
-                prompt = f"Summarize this medical report in clean Markdown format with key observations and metrics:\n\n{extracted_text}"
+                prompt = (
+                    f"Summarize this medical report in clean Markdown format with key observations and metrics.\n"
+                    f"CRITICAL RULES:\n"
+                    f"1. Strictly DO NOT use LaTeX or dollar sign ($) formatting for units.\n"
+                    f"2. Write all dosage/units in simple plain text (e.g. '5ml', '500mg/5ml', '37.8 C').\n\n"
+                    f"Document Text:\n{extracted_text}"
+                )
                 resp = ai_client.models.generate_content(
                     model="gemini-3.6-flash", contents=prompt)
-                summary = resp.text
+                summary = sanitize_medical_text(resp.text)
             else:
                 summary = "PDF parsed successfully (AI client unconfigured)."
 
@@ -339,10 +378,17 @@ async def upload_report(
 
             image = Image.open(io.BytesIO(contents))
             if ai_client:
-                prompt = "Examine this medical report image. Summarize key findings, diagnoses, and lab values in structured Markdown."
+                prompt = (
+                    "Examine this handwritten or typed medical prescription/report image carefully.\n"
+                    "Summarize key findings, patient details, diagnoses, and medication dosages in structured Markdown.\n"
+                    "CRITICAL RULES:\n"
+                    "1. Strictly DO NOT use LaTeX formatting, backslashes, or dollar signs ($) for any unit or dosage.\n"
+                    "2. Express dosages, quantities, and units in plain text only (e.g. write '5ml', '500mg', '5ml - 5ml - 5ml').\n"
+                    "3. Pay close attention to handwritten dosage numbers."
+                )
                 resp = ai_client.models.generate_content(
                     model="gemini-3.6-flash", contents=[image, prompt])
-                summary = resp.text
+                summary = sanitize_medical_text(resp.text)
             else:
                 summary = "Image uploaded successfully (AI client unconfigured)."
 
