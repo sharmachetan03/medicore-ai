@@ -111,8 +111,8 @@
 
         </div>
 
-        <!-- Grid 2: Smart Report Parsing & Appointment Scheduling -->
-        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <!-- Grid 2: Smart Report Parsing -->
+        <div class="grid grid-cols-1 gap-6">
 
             <!-- Tool 3: Medical Report Upload -->
             <div
@@ -141,35 +141,6 @@
                         class="hidden mt-4 p-4 bg-slate-900/90 rounded-xl border border-teal-500/30 text-sm text-slate-200 max-w-none">
                     </div>
                 </div>
-            </div>
-
-            <!-- Tool 4: Schedule Appointment -->
-            <div
-                class="bg-slate-800/60 border border-slate-700/60 rounded-2xl p-6 shadow-xl flex flex-col justify-between">
-                <div>
-                    <div class="flex items-center space-x-3 mb-4">
-                        <div class="p-2 bg-amber-500/10 text-amber-400 rounded-lg border border-amber-500/20">
-                            <i class="fa-solid fa-calendar-check text-xl"></i>
-                        </div>
-                        <h2 class="text-lg font-bold text-white">Book Doctor Consult</h2>
-                    </div>
-                    <p class="text-xs text-slate-400 mb-4">Schedule a clinical appointment. It will automatically log to
-                        your EHR history.</p>
-
-                    <div class="space-y-3">
-                        <input type="text" id="doc-name" placeholder="Doctor Name (e.g., Dr. Smith)"
-                            class="w-full p-2.5 bg-slate-900/80 border border-slate-700 rounded-xl text-sm text-white focus:outline-none focus:border-amber-500">
-                        <input type="datetime-local" id="app-date"
-                            class="w-full p-2.5 bg-slate-900/80 border border-slate-700 rounded-xl text-sm text-white focus:outline-none focus:border-amber-500">
-                        <input type="text" id="app-reason" placeholder="Reason for Visit"
-                            class="w-full p-2.5 bg-slate-900/80 border border-slate-700 rounded-xl text-sm text-white focus:outline-none focus:border-amber-500">
-                    </div>
-                </div>
-
-                <button onclick="bookAppointment()"
-                    class="mt-4 w-full py-2.5 bg-amber-600 hover:bg-amber-500 text-white rounded-xl text-sm font-medium transition">
-                    Confirm Appointment
-                </button>
             </div>
 
         </div>
@@ -318,32 +289,7 @@
             }
         }
 
-        // --- 4. Book Appointment ---
-        async function bookAppointment() {
-            const doctor_name = document.getElementById('doc-name').value;
-            const appointment_date = document.getElementById('app-date').value;
-            const reason = document.getElementById('app-reason').value;
-
-            if (!doctor_name || !appointment_date) return alert('Please fill in Doctor Name and Date.');
-
-            try {
-                const res = await fetch('/api/appointments', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'x-user-email': userEmail
-                    },
-                    body: JSON.stringify({ doctor_name, appointment_date, reason })
-                });
-                const data = await res.json();
-                alert('Appointment booked successfully!');
-                loadEHR();
-            } catch (err) {
-                alert('Error booking appointment.');
-            }
-        }
-
-        // --- 5. Load Clean EHR Table (No Action Column) ---
+        // --- 4. Load Clean EHR Table ---
         async function loadEHR() {
             const tbody = document.getElementById('ehr-table-body');
             tbody.innerHTML = `<tr><td colspan="4" class="py-4 text-center text-slate-500"><i class="fa-solid fa-spinner fa-spin mr-2"></i> Loading health records...</td></tr>`;
@@ -353,7 +299,7 @@
                 const records = await res.json();
 
                 if (!records || records.length === 0) {
-                    tbody.innerHTML = `<tr><td colspan="4" class="py-6 text-center text-slate-500">No medical records found. Upload a report or schedule an appointment to populate history.</td></tr>`;
+                    tbody.innerHTML = `<tr><td colspan="4" class="py-6 text-center text-slate-500">No medical records found. Upload a report to populate history.</td></tr>`;
                     return;
                 }
 
