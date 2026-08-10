@@ -43,7 +43,6 @@ MAX_FILE_SIZE = 10 * 1024 * 1024  # 10 MB Limit
 # Helper Function: Text Sanitization (Prevents LaTeX Render Bugs)
 # ---------------------------------------------------------------------------
 
-
 def sanitize_medical_text(text: str) -> str:
     """
     Post-processing safeguard: Strips LaTeX math syntax and stray dollar signs 
@@ -85,20 +84,7 @@ class User(Base):
     role = Column(String(20), default="patient")
     created_at = Column(DateTime, default=datetime.utcnow)
 
-    appointments = relationship("Appointment", back_populates="patient")
     medical_records = relationship("MedicalRecord", back_populates="patient")
-
-
-class Appointment(Base):
-    __tablename__ = "appointments"
-
-    id = Column(Integer, primary_key=True, index=True)
-    patient_id = Column(Integer, ForeignKey("users.id"), nullable=False)
-    doctor_name = Column(String(100), nullable=False)
-    appointment_date = Column(String(50), nullable=False)
-    notes = Column(Text, nullable=True)
-
-    patient = relationship("User", back_populates="appointments")
 
 
 class MedicalRecord(Base):
@@ -156,12 +142,6 @@ class UserCreate(BaseModel):
 class UserLogin(BaseModel):
     email: EmailStr
     password: str
-
-
-class AppointmentCreate(BaseModel):
-    doctor_name: str
-    appointment_date: str
-    reason: Optional[str] = None
 
 
 class TriageRequest(BaseModel):
@@ -369,9 +349,8 @@ async def upload_report(
         else:  # Image (JPG, JPEG, PNG)
             if ai_client:
                 mime_type = file.content_type or "image/jpeg"
-                image_part = types.Part.from_bytes(
-                    data=contents, mime_type=mime_type)
-
+                image_part = types.Part.from_bytes(data=contents, mime_type=mime_type)
+                
                 prompt = (
                     "Examine this handwritten or typed medical prescription/report image carefully.\n"
                     "Summarize key findings, patient details, diagnoses, and medication dosages in structured Markdown.\n"
@@ -380,9 +359,9 @@ async def upload_report(
                     "2. Express dosages, quantities, and units in plain text only (e.g. write '5ml', '500mg', '5ml - 5ml - 5ml').\n"
                     "3. Pay close attention to handwritten dosage numbers."
                 )
-
+                
                 resp = ai_client.models.generate_content(
-                    model="gemini-3.6-flash",
+                    model="gemini-3.6-flash", 
                     contents=[image_part, prompt]
                 )
                 summary = sanitize_medical_text(resp.text)
@@ -418,45 +397,6 @@ async def upload_report(
     except Exception as e:
         raise HTTPException(
             status_code=500, detail=f"File processing error: {str(e)}")
-
-# --- Appointments ---
-
-
-@app.post("/api/appointments")
-@app.post("/api/appointments/")
-def create_appointment(
-    appointment: AppointmentCreate,
-    x_user_email: Optional[str] = Header(None),
-    db: Session = Depends(get_db)
-):
-    patient = None
-    if x_user_email:
-        patient = db.query(User).filter(User.email == x_user_email).first()
-
-    if not patient:
-        raise HTTPException(
-            status_code=404, detail="Authenticated user not found.")
-
-    new_app = Appointment(
-        patient_id=patient.id,
-        doctor_name=appointment.doctor_name,
-        appointment_date=appointment.appointment_date,
-        notes=appointment.reason or "Routine Consult"
-    )
-    db.add(new_app)
-    db.commit()
-    db.refresh(new_app)
-
-    # Log into EHR history
-    ehr_rec = MedicalRecord(
-        patient_id=patient.id,
-        title=f"Appointment with Dr. {appointment.doctor_name}",
-        description=f"Date: {appointment.appointment_date} | Reason: {appointment.reason or 'Consultation'}"
-    )
-    db.add(ehr_rec)
-    db.commit()
-
-    return {"message": "Appointment scheduled successfully", "appointment_id": new_app.id}
 
 # --- EHR History & File Downloads ---
 
@@ -512,7 +452,7 @@ def download_ehr_report(record_id: int, db: Session = Depends(get_db)):
             media_type="application/octet-stream"
         )
 
-    # 2. Otherwise (for appointments/notes without physical files), generate text report
+    # 2. Otherwise generate text report
     patient_name = record.patient.full_name if record.patient else "Unknown Patient"
     date_str = record.created_at.strftime(
         "%Y-%m-%d %H:%M:%S") if record.created_at else "N/A"
@@ -531,7 +471,7 @@ CLINICAL NOTES:
 {record.description or 'No notes recorded.'}
 """
 
-    filename = f"MediCore_Appointment_{record.id}.txt"
+    filename = f"MediCore_Report_{record.id}.txt"
     return Response(
         content=report_content,
         media_type="text/plain",
